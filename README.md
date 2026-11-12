@@ -24,9 +24,9 @@ Do not double-click `trace.html`: the interface uses the Python API. If `python`
 - Open Scenario lab. Give Petal a verified prohibited checkout, apply the scenario and run checkout verification. Its recommendation changes. Set Harbour's fulfilled orders to 95% and remove complaint/checkout evidence; inspect payments and verify orders. Its recommendation changes too.
 - Restart review resets checks for that bakery; it keeps scenario inputs. Restore original scenario resets both. Decision history stays until cleared. Download the JSON case report before clearing browser storage.
 
-## What changed from the reference
+##  The reference
 
-The reference contributes a staged investigation, scarce review time, linked payment references, multiple evidence sources and a response ladder with consequences. This version avoids hard-coded fraud probabilities and claimed money saved. Recommendations depend on inspected evidence, not merchant names. The scenario lab changes the underlying synthetic facts, without granting that knowledge automatically to the reviewer. No onward bank-transfer visibility is assumed.
+The reference contributes a staged investigation, scarce review time, linked payment references, multiple evidence sources and a response ladder with consequences. This  avoids hard-coded fraud probabilities and claimed money saved. Recommendations depend on inspected evidence, not merchant names. The scenario lab changes the underlying synthetic facts, without granting that knowledge automatically to the reviewer. No onward bank-transfer visibility is assumed.
 
 ## Limits and assumptions
 
@@ -44,4 +44,4 @@ Decision consequences describe workflow effects, not measured future outcomes. A
 - `logo.svg`: unchanged TRACE logo from the previous project.
 - `test_trace.py`: behaviour and HTTP integration tests. Run `python -m unittest -v`.
 
-The hosted TRACE site is not replaced by running this package.
+
