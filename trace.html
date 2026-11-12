@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TRACE · Investigation room</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080e19;
+      --panel: #101a2a;
+      --panel-raised: #142238;
+      --line: #243249;
+      --ink: #edf3ff;
+      --muted: #9aaac0;
+      --blue: #35aefa;
+      --mint: #6bd9bb;
+      --amber: #f0b473;
+      --red: #f17d78;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 "Segoe UI", sans-serif; }
+    button, input, select { font: inherit; }
+    button, select { color: var(--ink); background: var(--panel-raised); border: 1px solid var(--line); border-radius: var(--radius); }
+    button { padding: 10px 14px; cursor: pointer; }
+    button:hover, button.active { border-color: var(--blue); background: #18354c; }
+    button:disabled { opacity: .42; cursor: not-allowed; }
+    button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+    a { color: var(--blue); }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 760px; margin-bottom: 12px; font-size: 42px; line-height: 1.12; }
+    h2 { margin-bottom: 8px; font-size: 23px; line-height: 1.3; }
+    h3 { margin-bottom: 6px; font-size: 16px; }
+    p { margin-bottom: 12px; }
+    small, .muted { color: var(--muted); }
+    .shell { max-width: 1240px; margin: auto; padding: 0 24px 48px; }
+    .masthead { display: flex; justify-content: space-between; align-items: center; gap: 20px; min-height: 88px; border-bottom: 1px solid var(--line); }
+    .brand img { display: block; width: 200px; max-width: 100%; height: auto; }
+    .mast-meta { color: var(--muted); text-align: right; font-size: 13px; }
+    .hero { padding: 32px 0 22px; }
+    .eyebrow, .section-kicker { color: var(--blue); font-size: 11px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; }
+    .hero p { max-width: 760px; color: var(--muted); }
+    .case-switch, .actions, .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .case-switch { margin: 0 0 24px; }
+    .case-switch button { min-width: 150px; font-weight: 600; }
+    .case-switch button.active { color: var(--blue); }
+    .stepper { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 0 0 20px; }
+    .stepper button { min-height: 56px; padding: 9px 10px; border: 0; border-top: 3px solid var(--line); border-radius: 0; background: transparent; color: var(--muted); text-align: left; }
+    .stepper button.active { border-top-color: var(--blue); background: transparent; color: var(--ink); }
+    .stepper button.done { border-top-color: var(--mint); }
+    .step-number { display: block; color: var(--muted); font-size: 11px; }
+    .workspace { min-height: 340px; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr); gap: 18px; }
+    .panel { padding: 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+    .panel-head { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
+    .metric { color: var(--blue); font-size: 32px; font-weight: 650; line-height: 1.2; }
+    .meter { height: 7px; overflow: hidden; margin: 10px 0 14px; border-radius: 5px; background: var(--line); }
+    .meter span { display: block; height: 100%; background: var(--blue); }
+    .fact-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .fact { min-height: 84px; padding: 12px; border-left: 2px solid var(--blue); background: var(--panel-raised); }
+    .fact b { display: block; margin-top: 4px; font-size: 17px; }
+    .map-legend { margin: 18px 0 8px; color: var(--muted); font-size: 12px; }
+    .map-scroll { overflow-x: auto; padding: 4px 2px 10px; }
+    .map-diagram { display: grid; grid-template-columns: minmax(150px, 1fr) 48px minmax(145px, .8fr) 48px minmax(185px, 1.1fr); grid-template-rows: repeat(var(--map-rows, 2), minmax(82px, auto)); gap: 12px 0; min-width: 620px; align-items: center; }
+    .map-node { min-height: 72px; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 11px 13px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-raised); }
+    .map-node strong { color: var(--ink); font-size: 14px; line-height: 1.3; }
+    .map-node small { color: var(--muted); }
+    .map-payer-one { grid-column: 1; grid-row: var(--payer-row-one, 1); }
+    .map-payer-two { grid-column: 1; grid-row: var(--payer-row-two, 2); }
+    .map-merchant { grid-column: 3; grid-row: 1 / span var(--map-rows, 2); min-height: 104px; border: 2px solid var(--blue); background: var(--panel); text-align: center; }
+    .map-destination { grid-column: 5; }
+    .map-destination.declared { border-color: var(--mint); }
+    .map-destination.other { border-color: var(--red); }
+    .map-edge { display: flex; align-items: center; height: 100%; }
+    .map-edge span { display: block; width: 100%; height: var(--edge-size, 2px); border-radius: 999px; background: var(--blue); }
+    .map-edge.unverified span { background: var(--muted); opacity: .7; }
+    .map-edge.outgoing-declared:not(.unverified) span { background: var(--mint); }
+    .map-edge.outgoing-other:not(.unverified) span { background: var(--red); }
+    .map-context { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 8px 0 18px; }
+    .map-context .fact { min-height: 72px; }
+    .map-ledger { margin: 18px 0; padding-top: 14px; }
+    .check-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+    .check-button { min-height: 92px; width: 100%; text-align: left; }
+    .check-button strong, .check-button small { display: block; }
+    .check-button small { margin-top: 5px; }
+    .check-button.complete { border-color: var(--mint); }
+    .evidence { margin: 16px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--blue); }
+    .evidence p { margin-bottom: 0; }
+    .evidence-list { display: grid; gap: 14px; }
+    .source-line { margin-top: 6px; color: var(--blue); font-size: 12px; }
+    .source-register { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .source-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+    .source-item { min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-raised); }
+    .source-item summary { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; font-size: 12px; }
+    .source-item summary span { min-width: 0; }
+    .source-status { flex: 0 0 auto; color: var(--muted); font-size: 10px; text-transform: uppercase; }
+    .source-status.checked { color: var(--mint); }
+    .source-item p { margin: 8px 0 0; font-size: 12px; }
+    .pattern-panel { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .pattern-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; margin-top: 12px; }
+    .pattern-row { min-width: 0; }
+    .pattern-head, .pattern-foot { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .pattern-head strong { white-space: nowrap; }
+    .pattern-track { height: 7px; overflow: hidden; margin: 6px 0 3px; border-radius: 5px; background: var(--line); }
+    .pattern-track span { display: block; height: 100%; background: var(--blue); }
+    .pattern-foot { color: var(--muted); font-size: 11px; }
+    .pattern-splits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+    .pattern-split { padding: 9px; border-left: 2px solid var(--amber); background: var(--panel-raised); }
+    .pattern-split strong { display: block; color: var(--amber); font-size: 18px; }
+    .pattern-split span { color: var(--muted); font-size: 11px; }
+    .pattern-interpretations { display: grid; gap: 10px; margin-top: 14px; }
+    .interpretation { padding: 11px 12px; border-left: 2px solid var(--blue); background: var(--panel-raised); }
+    .interpretation.triggered { border-left-color: var(--amber); }
+    .interpretation p { margin: 5px 0 0; font-size: 12px; }
+    .transaction-table { overflow-x: auto; margin-top: 14px; }
+    .transaction-table td:last-child { min-width: 150px; }
+    .triage-plan { margin-top: 14px; }
+    .signal-panel { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .signal-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; margin-top: 12px; }
+    .signal-head, .signal-foot { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .signal-head strong { color: var(--mint); }
+    .signal-head strong.flagged { color: var(--amber); }
+    .signal-track { position: relative; height: 8px; margin: 7px 0 4px; border-radius: 6px; background: var(--line); }
+    .signal-fill { display: block; height: 100%; max-width: 100%; border-radius: inherit; background: var(--blue); }
+    .signal-fill.flagged { background: var(--amber); }
+    .signal-threshold { position: absolute; top: -3px; width: 2px; height: 14px; background: var(--ink); opacity: .8; }
+    .signal-foot { color: var(--muted); font-size: 11px; }
+    .decision-card { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 12px; width: 100%; margin-top: 9px; text-align: left; align-items: flex-start; }
+    .decision-card.selected { border-color: var(--blue); background: #17314a; }
+    .decision-card.recommended { border-color: var(--mint); box-shadow: inset 3px 0 var(--mint); }
+    .decision-card > span:last-child { min-width: 0; }
+    .decision-card strong { display: block; }
+    .decision-level { display: flex; flex-direction: column; gap: 4px; color: var(--blue); font-weight: 700; line-height: 1.2; }
+    .decision-card small { display: block; margin-top: 4px; }
+    .recommendation-badge { display: block; color: var(--mint); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; line-height: 1.2; }
+    .recommendation { border-top: 3px solid var(--amber); }
+    .recommendation.monitor { border-top-color: var(--mint); }
+    .recommendation.verify { border-top-color: var(--blue); }
+    .recommendation.escalate { border-top-color: var(--red); }
+    .note { padding: 12px 14px; border-left: 3px solid var(--blue); background: var(--panel-raised); }
+    .note.warning { border-color: var(--amber); }
+    .note.good { border-color: var(--mint); }
+    .tag-row { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0; }
+    .tag { padding: 4px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 12px; }
+    .primary { border-color: var(--blue); background: var(--blue); color: #061322; font-weight: 700; }
+    .primary:hover { background: #6ac4ff; color: #061322; }
+    .nav { display: flex; justify-content: space-between; gap: 10px; margin: 18px 0 28px; }
+    .nav .right { display: flex; gap: 8px; margin-left: auto; }
+    details { border-top: 1px solid var(--line); padding-top: 12px; }
+    summary { cursor: pointer; font-weight: 600; }
+    .scenario { margin: 24px 0; }
+    .scenario-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; }
+    .range-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 10px 0; }
+    .range-row input { grid-column: 1 / -1; width: 100%; accent-color: var(--blue); }
+    .switch-row { display: flex; gap: 8px; align-items: center; margin: 12px 0; }
+    select { padding: 8px 10px; }
+    table { width: 100%; margin-top: 12px; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 8px; border-bottom: 1px solid var(--line); text-align: left; }
+    th { color: var(--muted); font-weight: 600; }
+    .case-record { margin-top: 24px; }
+    .log { padding: 14px 0; border-top: 1px solid var(--line); }
+    .log h3 { margin: 5px 0; }
+    .alert { min-height: 24px; color: var(--red); }
+    @media (max-width: 850px) { .layout { grid-template-columns: 1fr; } .stepper { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 560px) {
+      .shell { padding: 0 14px 34px; }
+      .masthead { min-height: 72px; }
+      .brand img { width: 132px; }
+      .mast-meta { font-size: 11px; }
+      .hero { padding-top: 24px; }
+      h1 { font-size: 32px; }
+      h2 { font-size: 20px; }
+      .stepper { gap: 2px; }
+      .stepper button { padding: 7px 4px; font-size: 12px; }
+      .fact-grid, .check-grid, .scenario-grid, .source-grid, .pattern-grid, .map-context { grid-template-columns: 1fr; }
+      .pattern-splits { grid-template-columns: 1fr; }
+      .panel { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="shell masthead">
+    <a class="brand" href="/" aria-label="TRACE home"><img src="/logo.png" alt="TRACE · Track Detect Prevent"></a>
+    <div class="mast-meta">Merchant investigation room<br>Synthetic evidence · Human decisions</div>
+  </header>
+  <main class="shell">
+    <section class="hero">
+      <span class="eyebrow">The bakery that takes bets</span>
+      <h1>The same spike.<br>A different explanation?</h1>
+      <p>Both bakeries grew from 250 to 1,000 payments a day. Choose evidence deliberately, test competing explanations, and see the consequences of five proportionate responses.</p>
+    </section>
+    <div class="case-switch">
+      <div class="actions" role="group" aria-label="Select bakery">
+        <button data-merchant="petal">Petal &amp; Crumb</button>
+        <button data-merchant="harbour">Harbour Bakes</button>
+      </div>
+      <button id="start-again">Start again</button>
+    </div>
+    <nav id="steps" class="stepper" aria-label="Investigation stages"></nav>
+    <p id="error" class="alert" role="alert"></p>
+    <section id="workspace" class="workspace" aria-live="polite"></section>
+    <div id="navigation" class="nav"></div>
+
+    <details class="panel scenario">
+      <summary>Scenario lab · change what actually happened</summary>
+      <p class="muted">Author controls change the synthetic facts and restart this bakery's review. They are not evidence the investigator automatically knows.</p>
+      <div id="scenario-controls"></div>
+      <div class="actions">
+        <button id="apply-scenario" class="primary">Apply scenario and restart review</button>
+        <button id="restore-scenario">Restore original scenario</button>
+      </div>
+    </details>
+
+    <section class="panel case-record">
+      <div class="panel-head">
+        <div><span class="section-kicker">Audit trail</span><h2>Your case record</h2></div>
+        <div class="actions"><button id="export-report">Download case report</button><button id="clear-history">Clear records</button></div>
+      </div>
+      <p class="muted">Records retain the selected response, supporting checks, unresolved questions and simulated consequence.</p>
+      <div id="history"></div>
+    </section>
+    <p class="muted">All merchants, payments and evidence are fictional. TRACE is a transparent teaching prototype, not a validated detection model. No real account is affected.</p>
+  </main>
+
+  <script>
+    const DEFAULTS = {
+      petal: { night: 8, round: 6, repeat: 71, orders: 92, complaint: false, route: false, shared_links: false, online: 78, settlement: 98, reply: 'invoice' },
+      harbour: { night: 72, round: 64, repeat: 14, orders: 15, complaint: true, route: true, shared_links: true, online: 16, settlement: 12, reply: 'vague' }
+    };
+    const CHECKS = [
+      { id: 'payments', title: 'Inspect payment patterns', cost: 10, description: 'Compare after-hours activity, round amounts and returning payers.' },
+      { id: 'orders', title: 'Verify fulfilled orders', cost: 20, description: 'Match payments against the independent fulfilment register.' },
+      { id: 'complaint', title: 'Match a complaint', cost: 15, description: 'Check the complaint reference against this merchant.' },
+      { id: 'route', title: 'Verify checkout route', cost: 15, description: 'Review an authorised test-purchase result.' },
+      { id: 'links', title: 'Check device and account links', cost: 15, description: 'Look for shared identifiers across merchant profiles.' },
+      { id: 'digital', title: 'Review web and social activity', cost: 10, description: 'Check whether public business activity supports the explanation.' },
+      { id: 'settlement', title: 'Trace settlement destination', cost: 15, description: 'Compare declared settlement with simulated destinations.' },
+      { id: 'merchant', title: 'Ask the merchant', cost: 10, description: 'Request a focused explanation and order references.' }
+    ];
+    const STAGES = ['Brief', 'Money map', 'Evidence', 'Decide', 'Outcome', 'Report'];
+    const histories = loadHistory();
+    const cases = Object.fromEntries(Object.keys(DEFAULTS).map(key => [key, {
+      inputs: { ...DEFAULTS[key] }, checks: [], response: null, maxStage: 0, recorded: false,
+      scenarioDirty: false, scenarioStatus: 'Current controls match the active scenario.'
+    }]));
+    let activeMerchant = 'petal';
+    let activeStage = 0;
+    let result = null;
+    let busy = false;
+
+    function loadHistory() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('trace-python-history') || '[]');
+        return Array.isArray(saved) ? saved : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[character]);
+    }
+
+    function currentCase() { return cases[activeMerchant]; }
+    function checked(id) { return currentCase().checks.includes(id); }
+    function money(value) { return Number(value).toLocaleString('en-IN'); }
+
+    async function refreshReview(scenarioMessage = '') {
+      busy = true;
+      document.querySelector('#error').textContent = '';
+      let updated = false;
+      try {
+        const response = await fetch('/api/review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ merchant: activeMerchant, inputs: currentCase().inputs, checks: currentCase().checks })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Review request failed');
+        result = data;
+        updated = true;
+      } catch (error) {
+        document.querySelector('#error').textContent = 'Could not update the review: ' + error.message;
+      } finally {
+        busy = false;
+        if (scenarioMessage) {
+          currentCase().scenarioStatus = updated
+            ? scenarioMessage
+            : 'The scenario update could not be confirmed. Check the error above, then apply again.';
+        }
+        draw();
+      }
+    }
+
+    function draw() {
+      document.querySelectorAll('[data-merchant]').forEach(button => button.classList.toggle('active', button.dataset.merchant === activeMerchant));
+      drawSteps();
+      drawScenarioControls();
+      drawHistory();
+      if (!result) return;
+      const renderers = [drawBrief, drawMoneyMap, drawEvidence, drawDecision, drawOutcome, drawReport];
+      document.querySelector('#workspace').innerHTML = renderers[activeStage]();
+      drawNavigation();
+    }
+
+    function drawSteps() {
+      document.querySelector('#steps').innerHTML = STAGES.map((stage, index) => `
+        <button class="${index === activeStage ? 'active' : index < currentCase().maxStage ? 'done' : ''}"
+          data-stage="${index}" ${index > currentCase().maxStage ? 'disabled' : ''}>
+          <span class="step-number">0${index + 1}</span>${stage}
+        </button>`).join('');
+    }
+
+    function drawNavigation() {
+      const back = activeStage > 0 ? '<button data-nav="-1">Back</button>' : '<span></span>';
+      let next = '';
+      if (activeStage < 3) next = `<button class="primary" data-nav="1">${activeStage === 0 ? 'Open money map' : activeStage === 1 ? 'Gather evidence' : 'Review recommendation'}</button>`;
+      if (activeStage === 3) next = `<button class="primary" data-nav="1" ${currentCase().response ? '' : 'disabled'}>See consequence</button>`;
+      if (activeStage === 4) next = '';
+      document.querySelector('#navigation').innerHTML = `${back}<div class="right">${next}</div>`;
+    }
+
+    function drawBrief() {
+      const inputs = currentCase().inputs;
+      return `<div class="layout">
+        <section class="panel"><span class="section-kicker">01 · Case briefing</span>
+          <h2>${escapeHtml(result.merchant)}</h2>
+          <p>Payment volume increased from 250 to 1,000 transactions a day. That is an alert to investigate, not a fraud conclusion.</p>
+          <div class="fact-grid"><div class="fact"><small>Change in volume</small><b>4×</b></div><div class="fact"><small>Review budget</small><b>60 min</b></div><div class="fact"><small>Selected checks</small><b>${currentCase().checks.length} / 8</b></div></div>
+          <div class="note"><b>Active synthetic scenario:</b> after-hours ${inputs.night}%, round amounts ${inputs.round}%, returning payers ${inputs.repeat}%, fulfilled orders ${inputs.orders}%, declared-account settlement ${inputs.settlement}%. Complaint ${inputs.complaint ? 'present' : 'absent'}, prohibited checkout ${inputs.route ? 'present' : 'absent'}, shared identifier ${inputs.shared_links ? 'present' : 'absent'}.</div>
+          <p class="muted">These are the scenario facts now in effect. They change findings only when you run the relevant evidence checks.</p>
+        </section>
+        <aside class="panel"><span class="section-kicker">Investigation question</span><h2>Which explanation fits the evidence?</h2>
+          <p class="muted">A seasonal rush, an unrecorded business change, mixed legitimate and prohibited activity, or a prohibited operation can produce overlapping signals.</p>
+          <div class="note">Start with the least disruptive checks that answer the open question. Unchecked evidence remains unknown.</div>
+        </aside>
+      </div>`;
+    }
+
+    function drawMoneyMap() {
+      const payerChecked = result.money_map.payments_checked;
+      const settlementChecked = result.money_map.settlement_checked;
+      const payerMix = result.money_map.payer_mix;
+      const repeat = payerMix.repeat;
+      const firstTime = payerMix.first_time;
+      const lineSize = value => `${Math.max(2, Math.min(12, value * 0.12))}px`;
+      const edge = (value, verified, gridRow, destinationType = '', gridColumn = 2) =>
+        `<span class="map-edge ${destinationType ? `outgoing-${destinationType}` : ''} ${verified ? '' : 'unverified'}" style="--edge-size:${lineSize(value)};grid-column:${gridColumn};grid-row:${gridRow}" aria-hidden="true"><span></span></span>`;
+      const payerNode = (label, value, known, className) =>
+        `<div class="map-node ${className}"><strong>${label}</strong><small>${value}% of payments · ${known ? 'payment ledger checked' : 'scenario preview · run payment check'}</small></div>`;
+      const payoutDestinations = result.money_map.settlement_destinations;
+      const mapRows = Math.max(2, payoutDestinations.length);
+      const payerRowOne = Math.max(1, Math.floor((mapRows - 2) / 2) + 1);
+      const payerRowTwo = payerRowOne + 1;
+      const payoutFlow = payoutDestinations.map((destination, index) => {
+        const row = index + 1;
+        const destinationType = destination.declared ? 'declared' : 'other';
+        const accountText = `${destination.declared ? 'Declared merchant account' : 'Recipient account · owner unverified'} · ${destination.share}% · ${money(destination.count)} payments · ${settlementChecked ? 'settlement ledger checked' : 'scenario preview · run settlement check'}`;
+        return `${edge(destination.share, settlementChecked, row, destinationType, 4)}
+          <div class="map-node map-destination ${destinationType}" style="grid-row:${row}">
+            <strong>${escapeHtml(destination.account_ref)}</strong><small>${accountText}</small>
+          </div>`;
+      }).join('');
+      const checkout = checked('route')
+        ? `<strong>${result.values.route ? 'Matched route' : 'No route found'}</strong><small>Authorised test purchase</small>`
+        : '<strong>Not checked</strong><small>Run checkout check · route remains unknown</small>';
+      const linkStatus = checked('links') ? result.values.shared_links ? 'Found' : 'Not found' : 'Not checked · run link check';
+      return `<section class="panel"><span class="section-kicker">02 · Money map</span><h2>Who paid, and where did the money go?</h2>
+        <p class="muted">Left: who is paying. Middle: the merchant account receiving each payment. Right: the payout accounts that receive settlement. Line thickness shows each share.</p>
+        <p class="map-legend">Payment source <span aria-hidden="true">━</span> Merchant <span aria-hidden="true">━</span> Destination · Thicker line = larger share</p>
+        <div class="map-scroll"><div class="map-diagram" style="--map-rows:${mapRows};--payer-row-one:${payerRowOne};--payer-row-two:${payerRowTwo}" role="group" aria-label="Payment flow for ${escapeHtml(result.merchant)}">
+          ${payerNode('First-time payers', firstTime, payerChecked, 'map-payer-one')}
+          ${edge(firstTime, payerChecked, payerRowOne)}
+          <div class="map-node map-merchant"><strong>${escapeHtml(result.merchant)}</strong><small>Merchant account</small></div>
+          ${payoutFlow}
+          ${payerNode('Repeat payers', repeat, payerChecked, 'map-payer-two')}
+          ${edge(repeat, payerChecked, payerRowTwo)}
+        </div></div>
+        ${result.money_map.sample_transactions.length ? `<details class="map-ledger" open>
+          <summary>Payment details · ${result.money_map.sample_transactions.length} synthetic sample transactions</summary>
+          <p class="muted">All values below are generated demo data, not real payments. Sender is a pseudonymous payer reference; receiver is the merchant account. The payout reference is a generated account ID, not an account holder's identity.</p>
+          <div class="transaction-table"><table><caption>Illustrative payment sample for ${escapeHtml(result.merchant)}</caption>
+            <thead><tr><th>Transaction</th><th>Time</th><th>Amount</th><th>Sender · payer ref</th><th>Receiver · merchant</th><th>Next payout destination</th></tr></thead>
+            <tbody>${result.money_map.sample_transactions.map(record => `<tr>
+              <td>${escapeHtml(record.id)}</td><td>${String(record.hour).padStart(2, '0')}:00</td>
+              <td>₹${money(record.amount)}</td><td>${escapeHtml(record.payer_ref)}</td>
+              <td>${escapeHtml(result.merchant)}</td>
+              <td>${escapeHtml(record.settlement_destination)} · ${settlementChecked ? 'settlement checked' : 'preview · run settlement check'}</td>
+            </tr>`).join('')}</tbody></table></div>
+          <p class="muted">This is a 12-row sample balanced across available payout accounts, not a complete ledger. Payment and settlement checks update the status; they do not make these fictional IDs real or identify account owners.</p>
+        </details>` : ''}
+        <div class="map-context"><div class="fact"><small>Checkout test</small><b>${checkout}</b></div><div class="fact"><small>Shared account or device</small><b>${linkStatus}</b></div></div>
+        <p class="note warning"><b>Important:</b> this map is generated demo data. Before the corresponding evidence check, shares and account references are scenario previews, not verified findings. The IDs do not identify real owners. Use the evidence checks to see how independent verification should update the case.</p>
+      </section>`;
+    }
+
+    function signalChart() {
+      const rows = [];
+      if (checked('payments') && result.metrics) {
+        rows.push(
+          { label: 'Payments after 10 pm', value: result.metrics.night, threshold: 20, direction: 'above', note: 'Prompt above 20%' },
+          { label: 'Round-amount payments', value: result.metrics.round, threshold: 40, direction: 'above', note: 'Prompt above 40%' },
+          { label: 'Returning payers', value: result.metrics.repeat, threshold: 30, direction: 'below', note: 'Prompt below 30%' }
+        );
+      }
+      if (checked('orders')) rows.push({ label: 'Fulfilled orders', value: result.values.orders, threshold: 80, direction: 'below', note: 'Monitoring support at 80%+' });
+      if (checked('settlement')) rows.push({ label: 'Declared settlement', value: result.values.settlement, threshold: 50, direction: 'below', note: 'Separate concern below 50%' });
+      if (!rows.length) return '';
+      return `<section class="signal-panel"><h3>Observed values vs illustrative thresholds</h3>
+        <p class="muted">The marker is the prompt boundary. Crossing it raises a question; it does not prove a violation.</p>
+        <div class="signal-list">${rows.map(row => {
+          const flagged = row.direction === 'above' ? row.value > row.threshold : row.value < row.threshold;
+          return `<div><div class="signal-head"><span>${escapeHtml(row.label)}</span><strong class="${flagged ? 'flagged' : ''}">${row.value}%</strong></div>
+            <div class="signal-track" role="img" aria-label="${escapeHtml(row.label)}: ${row.value} percent; illustrative threshold ${row.direction} ${row.threshold} percent">
+              <span class="signal-fill ${flagged ? 'flagged' : ''}" style="width:${row.value}%"></span><i class="signal-threshold" style="left:${row.threshold}%"></i>
+            </div><div class="signal-foot"><span>0%</span><span>${escapeHtml(row.note)}</span><span>100%</span></div></div>`;
+        }).join('')}</div></section>`;
+    }
+
+    function scenarioFactsPanel() {
+        const inputs = currentCase().inputs;
+        const rows = [
+          { label: 'Payment patterns', value: `After-hours ${inputs.night}% · round ${inputs.round}% · repeat payers ${inputs.repeat}%`, check: 'payments', action: 'Inspect payment patterns' },
+          { label: 'Fulfilled orders', value: `${inputs.orders}%`, check: 'orders', action: 'Verify fulfilled orders' },
+          { label: 'Complaint reference', value: inputs.complaint ? 'Present' : 'Absent', check: 'complaint', action: 'Match a complaint' },
+          { label: 'Prohibited checkout', value: inputs.route ? 'Present' : 'Absent', check: 'route', action: 'Verify checkout route' },
+          { label: 'Shared identifier', value: inputs.shared_links ? 'Present' : 'Absent', check: 'links', action: 'Check device and account links' },
+          { label: 'Online activity', value: `${inputs.online}%`, check: 'digital', action: 'Review web and social activity' },
+          { label: 'Declared-account settlement', value: `${inputs.settlement}%`, check: 'settlement', action: 'Trace settlement destination' },
+          { label: 'Merchant response', value: inputs.reply === 'no_reply' ? 'No reply' : inputs.reply === 'vague' ? 'Vague' : 'Itemised', check: 'merchant', action: 'Ask the merchant' },
+        ];
+        return `<section class="panel"><span class="section-kicker">Scenario lab · applied assumptions</span>
+          <h3>What the simulation is using</h3>
+          <p class="muted">These values are active scenario inputs, not findings. Each becomes checked only after its matching source check runs.</p>
+          <div class="fact-grid">${rows.map(row => `<div class="fact"><small>${escapeHtml(row.label)} · ${checked(row.check) ? 'source checked' : `not checked · ${row.action}`}</small><b>${escapeHtml(row.value)}</b></div>`).join('')}</div>
+        </section>`;
+    }
+
+    function transactionPatternPanel() {
+      const patterns = result.transaction_patterns;
+      if (!patterns) return '';
+      const percentage = count => (count / patterns.total_transactions * 100).toFixed(1);
+      const distribution = (heading, items) => `<div><h3>${heading}</h3>${items.map(item => `<div class="pattern-row">
+        <div class="pattern-head"><span>${escapeHtml(item.label)}</span><strong>${money(item.count)} · ${percentage(item.count)}%</strong></div>
+        <div class="pattern-track"><span style="width:${percentage(item.count)}%"></span></div></div>`).join('')}</div>`;
+      const payerRows = patterns.frequent_payers.length
+        ? `<p class="muted">Most frequent returning-payer references: ${patterns.frequent_payers.map(item => `${escapeHtml(item.payer)} (${item.transactions})`).join(' · ')}</p>`
+        : '<p class="muted">No returning-payer references were generated for this scenario.</p>';
+      const interpretations = result.pattern_signals.map(signal => `<article class="interpretation ${signal.triggered ? 'triggered' : ''}">
+        <div class="pattern-head"><b>${escapeHtml(signal.label)}</b><strong>${signal.value}% · ${signal.triggered ? 'threshold crossed' : 'threshold not crossed'}</strong></div>
+        <p><b>Why it matters:</b> ${signal.direction === 'above' ? 'Above' : 'Below'} the illustrative ${signal.threshold}% prompt threshold. This identifies a pattern, not fraud.</p>
+        <p><b>Alternative:</b> ${escapeHtml(signal.alternative)}</p><p><b>Corroborate with:</b> ${escapeHtml(signal.corroborate)}</p>
+      </article>`).join('');
+      const intersections = patterns.co_occurrence.map(item => `<div class="pattern-split"><strong>${money(item.count)}</strong><span>${escapeHtml(item.label)}</span></div>`).join('');
+      return `<section class="pattern-panel"><span class="section-kicker">Transaction pattern · ${money(patterns.total_transactions)} records</span>
+        <h3>What is happening in the payment stream?</h3>
+        <p class="muted">These are counts from the synthetic processor ledger for this case. Co-occurrence helps prioritize references; it does not prove a shared purpose.</p>
+        <div class="pattern-grid">${distribution('Time of payment', patterns.time_bands)}${distribution('Amount and payer mix', [...patterns.amount_mix, ...patterns.payer_mix])}</div>
+        <h3 style="margin-top:16px">Patterns that overlap</h3><div class="pattern-splits">${intersections}</div>
+        <details style="margin-top:14px"><summary>Inspect recurring payer references</summary>${payerRows}</details>
+        <div class="pattern-interpretations">${interpretations}</div>
+      </section>`;
+    }
+
+    function drawEvidence() {
+      const evidence = result.evidence.length
+        ? result.evidence.map(item => `<article class="evidence"><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.text)}</p>
+          <p class="source-line">Source: ${escapeHtml(item.name)}</p><p><b>Can establish:</b> ${escapeHtml(item.use)}</p><p><b>Cannot establish:</b> ${escapeHtml(item.limit)}</p></article>`).join('')
+        : '<p class="muted">No checks completed yet. Choose a check to reveal its findings.</p>';
+      const gaps = result.gaps.map(gap => `<li>${escapeHtml(gap)}</li>`).join('') || '<li>Checks cannot rule out activity outside the available evidence.</li>';
+      const records = result.records.length ? `<details open><summary>Inspect 12 priority payment references</summary><p class="muted">Rows are selected for overlapping observed patterns, not scored as fraud. Each reference should be checked against the source registers above.</p>
+        <div class="transaction-table"><table><thead><tr><th>TX reference</th><th>Time</th><th>Amount</th><th>Payer ref</th>${checked('orders') ? '<th>Order register</th>' : ''}${checked('settlement') ? '<th>Settlement</th>' : ''}<th>Observed pattern</th></tr></thead><tbody>
+        ${result.records.map(record => `<tr><td>${record.id}</td><td>${record.hour}:00</td><td>₹${money(record.amount)}</td><td>${escapeHtml(record.payer_ref)}</td>${checked('orders') ? `<td>${record.order_ref ? escapeHtml(record.order_ref) : 'No match'}</td>` : ''}${checked('settlement') ? `<td>${escapeHtml(record.settlement_destination)}</td>` : ''}<td>${record.pattern_flags.length ? escapeHtml(record.pattern_flags.join(' · ')) : 'No configured threshold flag'}</td></tr>`).join('')}
+        </tbody></table></div></details>` : '';
+      const chart = signalChart();
+      const patterns = transactionPatternPanel();
+      const sources = `<section class="source-register"><h3>Evidence source register</h3><p class="muted">All eight sources in this prototype are synthetic. “Not checked” means unknown, not clean.</p>
+        <div class="source-grid">${result.sources.map(source => `<details class="source-item"><summary><span>${escapeHtml(source.name)}</span><b class="source-status ${source.checked ? 'checked' : ''}">${source.checked ? 'Checked' : 'Not checked'}</b></summary>
+          <p><b>Records:</b> ${escapeHtml(source.records)}</p><p><b>Useful for:</b> ${escapeHtml(source.use)}</p><p><b>Limit:</b> ${escapeHtml(source.limit)}</p></details>`).join('')}</div>
+      </section>`;
+      return `${scenarioFactsPanel()}<div class="layout"><section class="panel">
+        <div class="panel-head"><div><span class="section-kicker">03 · Evidence room</span><h2>Choose what to verify</h2></div><div class="metric">${result.remaining}<small style="font-size:13px"> / ${result.budget} min</small></div></div>
+        <div class="meter"><span style="width:${result.spent / result.budget * 100}%"></span></div>
+        <p class="muted">All eight checks cost more than the available time. Select checks that resolve different uncertainties.</p>
+        <div class="check-grid">${CHECKS.map(check => {
+          const complete = checked(check.id);
+          const tooExpensive = check.cost > result.remaining;
+          return `<button class="check-button ${complete ? 'complete' : ''}" data-check="${check.id}" ${complete || tooExpensive ? 'disabled' : ''}>
+            <strong>${complete ? '✓ ' : ''}${check.title}</strong><small>${complete ? 'Completed' : `${check.cost} minutes${tooExpensive ? ' · budget too low' : ''} · ${check.description}`}</small>
+          </button>`;
+        }).join('')}</div></section>
+        <aside class="panel"><span class="section-kicker">Findings and gaps</span><div class="evidence-list">${evidence}</div>${chart}${patterns}${records}${sources}
+          <details style="margin-top:16px"><summary>What is still unknown (${result.gaps.length})</summary><ul>${gaps}</ul></details>
+        </aside></div>`;
+    }
+
+    function drawDecision() {
+      const recommendation = result.recommendation;
+      const tone = result.action === 'monitor' ? 'monitor' : result.action === 'escalate' ? 'escalate' : 'verify';
+      const selected = currentCase().response;
+      return `${scenarioFactsPanel()}<div class="layout"><section class="panel recommendation ${tone}">
+        <span class="section-kicker">04 · Evidence-based recommendation</span><h2>Suggested: Level ${recommendation.level} · ${escapeHtml(recommendation.label)}</h2>
+        <p>${escapeHtml(recommendation.basis)}</p><ul>${result.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>
+        <div class="tag-row">${result.follow_up_sources.map(source => `<span class="tag">${escapeHtml(source.replaceAll('_', ' '))}</span>`).join('') || '<span class="tag">No verified concern source yet</span>'}</div>
+        <div class="note triage-plan"><h3>Working conclusion</h3><p>${escapeHtml(result.triage_plan.conclusion)}</p>
+          <h3>What to do next</h3><ol>${result.triage_plan.actions.map(action => `<li>${escapeHtml(action)}</li>`).join('')}</ol>
+          <p><b>Decision rule:</b> ${escapeHtml(result.triage_plan.decision_rule)}</p></div>
+        <p class="muted">This is a transparent rule-based recommendation, not a fraud probability or automatic restriction.</p>
+      </section><section class="panel"><span class="section-kicker">Choose a proportionate response</span><h2>Five response levels</h2>
+        <p class="muted">The response ladder stays the same; the mint <b>Recommended</b> marker moves when the scenario's checked evidence changes.</p>
+        ${result.responses.map((response, index) => {
+          const isRecommended = response.id === recommendation.id;
+          return `<button class="decision-card ${selected === response.id ? 'selected' : ''} ${isRecommended ? 'recommended' : ''}" data-response="${response.id}" ${!response.enabled ? 'disabled' : ''}>
+          <span class="decision-level">L${index}${isRecommended ? '<small class="recommendation-badge">Recommended</small>' : ''}</span><span><strong>${escapeHtml(response.label)}</strong><small>${escapeHtml(response.summary)}${!response.enabled ? ` · needs ${response.min_checks} checks` : ''}</small></span>
+        </button>`;
+        }).join('')}
+        <p class="note warning" style="margin-top:14px">A human authorises any restriction or referral. Verified checkout evidence can justify immediate analyst review; mixed legitimate orders must still be protected.</p>
+      </section></div>`;
+    }
+
+    function consequenceFor(responseId) {
+      if (responseId === 'monitor') {
+        return result.recommendation.level >= 3
+          ? 'The concerning evidence remains unresolved and the payment flow continues. Set an immediate review trigger and document why a stronger response was deferred.'
+          : result.recommendation.level === 0
+            ? 'Trading continues. Record the corroborated order evidence and reopen if new contradictory evidence appears.'
+            : 'Trading continues, but the evidence gaps remain open. Monitoring does not clear the merchant.';
+      }
+      if (responseId === 'ask') {
+        return checked('merchant')
+          ? result.evidence.find(item => item.title === 'Merchant response').text
+          : 'Send one focused request for order references and an explanation of the changed activity. A response is not proof until independently checked.';
+      }
+      if (responseId === 'verify') return 'Request transaction-specific order references, then verify fulfilment through an independent source. Keep the request limited to the unresolved evidence.';
+      if (responseId === 'limit') return 'A human reviewer may consider a narrowly scoped, reversible restriction on the matched flow, with reasons and an appeal path. This prototype does not freeze funds.';
+      return 'Preserve the evidence pack for an authorised analyst. Review mixed activity and the least disruptive intervention; no automatic finding or referral is made.';
+    }
+
+    function drawOutcome() {
+      const choice = result.responses.find(item => item.id === currentCase().response);
+      const levels = { monitor: 0, ask: 1, verify: 2, limit: 3, analyst: 4 };
+      const higherThanSuggested = levels[choice.id] > result.recommendation.level;
+      return `<section class="panel"><span class="section-kicker">05 · Consequence preview</span><h2>${escapeHtml(choice.label)} · ${escapeHtml(result.merchant)}</h2>
+        <div class="layout"><div class="note ${higherThanSuggested ? 'warning' : 'good'}"><h3>What happens next</h3><p>${escapeHtml(consequenceFor(choice.id))}</p></div>
+          <div class="note"><h3>Decision guardrails</h3><p>Analyst time used: <b>${result.spent} of ${result.budget} minutes</b>.</p><p>Unresolved questions: <b>${result.gaps.length}</b>.</p><p class="muted">The workflow consequence is illustrative, not a measured financial outcome.</p></div></div>
+        <div class="actions"><button id="change-response">Change response</button><button id="record-decision" class="primary">Record this decision</button></div>
+      </section>`;
+    }
+
+    function caseReport() {
+      const choice = result.responses.find(item => item.id === currentCase().response);
+      return {
+        merchant: result.merchant,
+        matched_transaction_ref: result.matched_transaction_ref,
+        checks: result.checks,
+        evidence: result.evidence,
+        sources: result.sources,
+        transaction_patterns: result.transaction_patterns,
+        pattern_signals: result.pattern_signals,
+        recommendation: result.recommendation,
+        triage_plan: result.triage_plan,
+        selected_response: choice ? choice.label : null,
+        consequence: choice ? consequenceFor(choice.id) : null,
+        unresolved_questions: result.gaps,
+        disclosure: result.disclosure
+      };
+    }
+
+    function drawReport() {
+      const report = caseReport();
+      return `<section class="panel"><span class="section-kicker">06 · Case report</span><h2>${escapeHtml(result.merchant)} · investigation record</h2>
+        <div class="layout"><div><h3>Recommendation</h3><p>Level ${report.recommendation.level} · ${escapeHtml(report.recommendation.label)}</p>
+          <h3>Priority transaction to reconcile</h3><p><code>${escapeHtml(report.matched_transaction_ref)}</code></p>
+          <h3>Selected response</h3><p>${report.selected_response ? escapeHtml(report.selected_response) : 'No response recorded yet'}</p>
+          <h3>Consequence</h3><p>${report.consequence ? escapeHtml(report.consequence) : 'Select and preview a response to complete the case.'}</p></div>
+          <div><h3>Verified evidence and sources</h3>${report.evidence.length ? `<ul>${report.evidence.map(item => `<li><b>${escapeHtml(item.title)}:</b> ${escapeHtml(item.text)}<br><small>Source: ${escapeHtml(item.name)} · Limit: ${escapeHtml(item.limit)}</small></li>`).join('')}</ul>` : '<p class="muted">No evidence checks completed.</p>'}
+            <h3>Open questions</h3>${report.unresolved_questions.length ? `<ul>${report.unresolved_questions.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">No listed gaps; checks still cannot prove absence of all activity.</p>'}</div></div>
+        <p class="muted">${escapeHtml(report.disclosure)}</p><div class="actions"><button id="download-current" class="primary">Download this case as JSON</button></div>
+      </section>`;
+    }
+
+    function drawScenarioControls() {
+      const values = currentCase().inputs;
+      const sliders = [['night', 'Payments after 10 pm'], ['round', 'Round-amount payments'], ['repeat', 'Returning payers'], ['orders', 'Independently fulfilled orders'], ['online', 'Recent online business activity'], ['settlement', 'Funds reaching declared account']];
+      const status = currentCase().scenarioDirty
+        ? 'Unapplied changes. Select “Apply scenario and restart review” to use them.'
+        : currentCase().scenarioStatus;
+      document.querySelector('#scenario-controls').innerHTML = `<p id="scenario-status" class="note" role="status">${escapeHtml(status)}</p><div class="scenario-grid">
+        ${sliders.map(([field, label]) => `<label class="range-row">${label}<b id="value-${field}">${values[field]}%</b><input type="range" min="0" max="100" value="${values[field]}" data-input="${field}"></label>`).join('')}
+      </div>
+      <label class="switch-row"><input type="checkbox" data-input="complaint" ${values.complaint ? 'checked' : ''}> Matched complaint reference exists</label>
+      <label class="switch-row"><input type="checkbox" data-input="route" ${values.route ? 'checked' : ''}> Verified prohibited checkout exists</label>
+      <label class="switch-row"><input type="checkbox" data-input="shared_links" ${values.shared_links ? 'checked' : ''}> Shared device or account identifier exists</label>
+      <label class="switch-row">Merchant response <select data-input="reply"><option value="invoice" ${values.reply === 'invoice' ? 'selected' : ''}>Itemised supporting response</option><option value="vague" ${values.reply === 'vague' ? 'selected' : ''}>Vague response</option><option value="no_reply" ${values.reply === 'no_reply' ? 'selected' : ''}>No response in 48 hours</option></select></label>`;
+      document.querySelector('#scenario-controls').innerHTML += `<details style="margin-top:16px"><summary>How each input affects the simulation</summary>
+        <ul>
+          <li><b>After-hours, round amounts and repeat payers:</b> the payment check flags rates above 20%, above 40% and below 30%, respectively. These are prompts, not proof.</li>
+          <li><b>Fulfilled orders:</b> at least 80% can support monitoring after payment review, unless separate complaint, checkout, link, settlement or merchant-response concerns remain.</li>
+          <li><b>Complaint:</b> a matched reference is a lead. It can prompt targeted checking but does not establish prohibited activity by itself.</li>
+          <li><b>Checkout:</b> a verified prohibited route is direct scenario evidence and recommends analyst review when that check is run.</li>
+          <li><b>Shared links and settlement:</b> a found shared identifier or less than 50% reaching the declared account adds a separate concern when checked.</li>
+          <li><b>Online activity:</b> changes the contextual finding only; it cannot clear or flag a merchant on its own.</li>
+          <li><b>Merchant response:</b> a vague or missing reply leaves a concern to resolve; no reply is not proof of wrongdoing.</li>
+        </ul>
+        <p class="muted">Applying changed facts restarts the review and clears its checks. The recommendation updates only after you run the relevant checks on those new facts.</p>
+      </details>`;
+    }
+
+    function drawHistory() {
+      document.querySelector('#history').innerHTML = histories.map(entry => `<article class="log">
+        <small>${escapeHtml(entry.time || 'Earlier record')} · ${escapeHtml(entry.checks ? entry.checks.join(', ') : '')}</small>
+        <h3>${escapeHtml(entry.merchant || 'Merchant')} · ${escapeHtml(entry.choice || entry.response || 'Decision')}</h3>
+        <p>${escapeHtml(entry.consequence || '')}</p><small>${entry.spent ?? ''} analyst minutes</small>
+      </article>`).join('') || '<p class="muted">No decisions recorded yet.</p>';
+    }
+
+    function goToStage(stage) {
+      activeStage = Math.max(0, Math.min(5, stage));
+      currentCase().maxStage = Math.max(currentCase().maxStage, activeStage);
+      draw();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function switchMerchant(key) {
+      activeMerchant = key;
+      activeStage = Math.min(activeStage, currentCase().maxStage);
+      await refreshReview();
+    }
+
+    function saveDecision() {
+      const selected = result.responses.find(item => item.id === currentCase().response);
+      if (!selected) return;
+      histories.unshift({
+        merchant: result.merchant, time: new Date().toLocaleString(), choice: selected.label,
+        consequence: consequenceFor(selected.id), spent: result.spent, checks: result.checks,
+        matched_transaction_ref: result.matched_transaction_ref,
+        recommendation: result.recommendation, evidence: result.evidence,
+        sources: result.sources, transaction_patterns: result.transaction_patterns,
+        pattern_signals: result.pattern_signals, triage_plan: result.triage_plan, gaps: result.gaps
+      });
+      currentCase().recorded = true;
+      try { localStorage.setItem('trace-python-history', JSON.stringify(histories)); } catch {}
+      activeStage = 5;
+      currentCase().maxStage = 5;
+      draw();
+    }
+
+    function markScenarioDraft() {
+      const state = currentCase();
+      state.scenarioDirty = true;
+      const status = document.querySelector('#scenario-status');
+      if (status) status.textContent = 'Unapplied changes. Select “Apply scenario and restart review” to use them.';
+    }
+
+    function downloadJson(filename, data) {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    document.addEventListener('input', event => {
+      if (event.target.matches('#scenario-controls input[type="range"][data-input]')) {
+        document.querySelector('#value-' + event.target.dataset.input).textContent = event.target.value + '%';
+      }
+      if (event.target.matches('#scenario-controls [data-input]')) markScenarioDraft();
+    });
+
+    document.addEventListener('change', event => {
+      if (event.target.matches('#scenario-controls [data-input]')) markScenarioDraft();
+    });
+
+    document.addEventListener('click', async event => {
+      const button = event.target.closest('button');
+      if (!button || busy) return;
+      if (button.dataset.merchant) return switchMerchant(button.dataset.merchant);
+      if (button.dataset.stage !== undefined) return goToStage(Number(button.dataset.stage));
+      if (button.dataset.nav) return goToStage(activeStage + Number(button.dataset.nav));
+      if (button.dataset.check) {
+        currentCase().checks.push(button.dataset.check);
+        return refreshReview();
+      }
+      if (button.dataset.response) {
+        currentCase().response = button.dataset.response;
+        return draw();
+      }
+      if (button.id === 'change-response') return goToStage(3);
+      if (button.id === 'record-decision') return saveDecision();
+      if (button.id === 'start-again') {
+        currentCase().inputs = { ...DEFAULTS[activeMerchant] };
+        currentCase().checks = [];
+        currentCase().response = null;
+        currentCase().recorded = false;
+        currentCase().maxStage = 0;
+        currentCase().scenarioDirty = false;
+        activeStage = 0;
+        return refreshReview('Original scenario restored and review reset.');
+      }
+      if (button.id === 'apply-scenario') {
+        document.querySelectorAll('#scenario-controls [data-input]').forEach(input => {
+          currentCase().inputs[input.dataset.input] = input.type === 'checkbox' ? input.checked : input.type === 'range' ? Number(input.value) : input.value;
+        });
+        currentCase().checks = [];
+        currentCase().response = null;
+        currentCase().recorded = false;
+        activeStage = 0;
+        currentCase().maxStage = 0;
+        currentCase().scenarioDirty = false;
+        currentCase().scenarioStatus = 'Applying scenario…';
+        return refreshReview('Scenario applied and review reset. Run the relevant checks to see its effect on findings.');
+      }
+      if (button.id === 'restore-scenario') {
+        currentCase().inputs = { ...DEFAULTS[activeMerchant] };
+        currentCase().checks = [];
+        currentCase().response = null;
+        currentCase().recorded = false;
+        activeStage = 0;
+        currentCase().maxStage = 0;
+        currentCase().scenarioDirty = false;
+        return refreshReview('Original scenario restored and review reset.');
+      }
+      if (button.id === 'download-current') return downloadJson('TRACE_case_report.json', caseReport());
+      if (button.id === 'export-report') return downloadJson('TRACE_case_report.json', { project: 'TRACE', records: histories, current_case: result ? caseReport() : null });
+      if (button.id === 'clear-history') {
+        histories.length = 0;
+        try { localStorage.removeItem('trace-python-history'); } catch {}
+        return drawHistory();
+      }
+    });
+
+    drawScenarioControls();
+    refreshReview();
+  </script>
+</body>
+</html>
